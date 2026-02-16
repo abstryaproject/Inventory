@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Investment Tracker Dashboard</title>
+
+<!-- SEO -->
+<meta name="description" content="Track your investments, record buy/sell dates, visualize profits, and manage your stock portfolio with our interactive Investment Tracker Dashboard.">
+<meta name="keywords" content="Investment Tracker, Stock Portfolio, Buy Sell Records, Profit Dashboard, Financial Tracker, Trading History, Portfolio Visualization">
+<meta name="author" content="Abstry">
+<meta name="robots" content="index, follow">
+
+<!-- Open Graph / Social Sharing -->
+<meta property="og:title" content="Investment Tracker Dashboard">
+<meta property="og:description" content="Track your investments, record buy/sell dates, visualize profits, and manage your portfolio easily.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://yourwebsite.com">
+<meta property="og:image" content="https://yourwebsite.com/preview-image.png">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Investment Tracker Dashboard">
+<meta name="twitter:description" content="Track your investments, record buy/sell dates, visualize profits, and manage your portfolio easily.">
+<meta name="twitter:image" content="https://yourwebsite.com/preview-image.png">
+
+<!-- Favicon -->
+<link id="dynamic-favicon" rel="icon" type="image/png" href="https://yourwebsite.com/favicon-neutral.png">
+<link rel="apple-touch-icon" sizes="180x180" href="https://yourwebsite.com/apple-touch-icon.png">
+
+<!-- Theme & Browser Colors -->
+<meta name="theme-color" content="#1e90ff">
+<meta name="msapplication-TileColor" content="#1e90ff">
+<meta name="msapplication-TileImage" content="https://yourwebsite.com/mstile-144x144.png">
+
+<!-- iOS Web App Mode -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<!-- Dynamic Animated Favicon Script -->
+<script>
+let lastProfit = null;
+let flashTimeout;
+
+function updateAnimatedFavicon() {
+  const totalProfit = trades.reduce((sum, t) => sum + t.profit, 0);
+  const favicon = document.getElementById('dynamic-favicon');
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 32;
+  canvas.height = 32;
+  const ctx = canvas.getContext('2d');
+
+  const baseImage = new Image();
+  baseImage.src = "https://yourwebsite.com/favicon-neutral.png";
+  baseImage.onload = () => {
+    ctx.drawImage(baseImage, 0, 0, 32, 32);
+
+    // Circle background
+    const isNegative = totalProfit < 0;
+    ctx.fillStyle = isNegative ? 'red' : 'green';
+    ctx.beginPath();
+    ctx.arc(24, 8, 8, 0, 2*Math.PI);
+    ctx.fill();
+
+    // Draw number
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 10px Arial';
+    let displayNum = Math.round(totalProfit);
+    if (Math.abs(displayNum) > 999) displayNum = displayNum > 0 ? '999+' : '-999+';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(displayNum, 24, 8);
+
+    // Set favicon
+    favicon.href = canvas.toDataURL('image/png');
+
+    // Flash animation if profit sign changed
+    if (lastProfit !== null && Math.sign(totalProfit) !== Math.sign(lastProfit)) {
+      clearTimeout(flashTimeout);
+      let flash = 0;
+      const flashInterval = setInterval(() => {
+        ctx.clearRect(0,0,32,32);
+        ctx.drawImage(baseImage,0,0,32,32);
+        ctx.fillStyle = flash % 2 === 0 ? (totalProfit<0?'green':'red') : (totalProfit<0?'red':'green');
+        ctx.beginPath();
+        ctx.arc(24,8,8,0,2*Math.PI);
+        ctx.fill();
+        ctx.fillStyle = 'white';
+        ctx.fillText(displayNum, 24, 8);
+        favicon.href = canvas.toDataURL('image/png');
+        flash++;
+        if(flash>5) clearInterval(flashInterval);
+      }, 150);
+    }
+
+    lastProfit = totalProfit;
+  };
+}
+
+// Call this after rendering trades
+// Example: renderTrades() { ... updateAnimatedFavicon(); }
+</script>
+<style>
+  body { font-family: Arial; background: #f5f6fa; margin:0; padding:0; }
+  .app { max-width: 900px; margin: auto; padding:20px; }
+  h1,h2 { text-align:center; }
+  .summary { background:white; padding:15px; border-radius:10px; margin-bottom:20px; box-shadow:0 2px 5px rgba(0,0,0,0.1);}
+  button { width:100%; padding:12px; border:none; border-radius:8px; background:#1e90ff; color:white; font-size:16px; cursor:pointer; margin:5px 0;}
+  button:hover { background:#0c75d8;}
+  .trade { background:white; padding:10px; margin-top:10px; border-radius:10px; box-shadow:0 2px 5px rgba(0,0,0,0.1);}
+  .profit { color:green; } .loss { color:red; }
+  .modal { display:none; position:fixed; z-index:10; left:0; top:0; width:100%; height:100%; overflow:auto; background-color: rgba(0,0,0,0.5);}
+  .modal-content { background:white; margin:5% auto; padding:20px; border-radius:10px; max-width:450px; box-shadow:0 4px 8px rgba(0,0,0,0.2);}
+  .close { color:#aaa; float:right; font-size:28px; font-weight:bold; cursor:pointer; }
+  .close:hover { color:black; }
+  .modal input { width:100%; padding:10px; margin:5px 0; border-radius:8px; border:1px solid #ddd; }
+  .filters { display:flex; justify-content:space-around; margin-bottom:15px; flex-wrap:wrap; }
+  .filters button { width:auto; padding:8px 12px; font-size:14px; margin:2px; }
+  canvas { background:white; border-radius:10px; padding:10px; box-shadow:0 2px 5px rgba(0,0,0,0.1); margin-bottom:20px; }
+</style>
+</head>
+<body>
+<div class="app">
+<h1>📈 Investment Tracker Dashboard</h1>
+<button id="openFormBtn">➕ Add Trade</button>
+
+<!-- Modal Form -->
+<div id="tradeModal" class="modal">
+  <div class="modal-content">
+    <span class="close" id="closeModal">&times;</span>
+    <h2>Add / Edit Trade</h2>
+    <input type="text" id="asset" placeholder="Asset / Share Name">
+    <input type="number" id="buyPrice" placeholder="Buy Price">
+    <input type="number" id="unitsBought" placeholder="Units Bought">
+    <input type="datetime-local" id="buyDate" placeholder="Buy Date & Time">
+    <input type="number" id="sellPrice" placeholder="Sell Price (optional)">
+    <input type="number" id="unitsSold" placeholder="Units Sold (optional)">
+    <input type="datetime-local" id="sellDate" placeholder="Sell Date & Time (optional)">
+    <button id="saveTradeBtn">💾 Save Trade</button>
+  </div>
+</div>
+
+<div class="filters">
+  <button onclick="setFilter('All')">All Trades</button>
+  <button onclick="setFilter('Open')">Open Trades</button>
+  <button onclick="setFilter('Closed')">Closed Trades</button>
+</div>
+
+<div class="summary">
+  <p>Total Invested: ₦<span id="totalInvested">0</span></p>
+  <p>Total Profit/Loss: ₦<span id="totalProfit">0</span></p>
+</div>
+
+<div id="history"></div>
+
+<h2>📊 Profit/Loss per Trade</h2>
+<canvas id="profitChart" width="400" height="200"></canvas>
+
+<h2>📊 Portfolio Composition</h2>
+<canvas id="portfolioChart" width="400" height="200"></canvas>
+
+<h2>📊 Buy vs Sell (Stacked)</h2>
+<canvas id="buySellChart" width="400" height="200"></canvas>
+
+<h2>📊 Remaining Shares</h2>
+<canvas id="remainingChart" width="400" height="200"></canvas>
+
+<h2>📊 Cumulative Profit Over Time</h2>
+<canvas id="cumulativeChart" width="400" height="200"></canvas>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let trades = JSON.parse(localStorage.getItem("trades")) || [];
+let editIndex = null;
+let filterStatus = "All";
+let currentPage = 1;
+const itemsPerPage = 2;
+
+// Chart instances
+let profitChartInstance, portfolioChartInstance, buySellChartInstance, remainingChartInstance, cumulativeChartInstance;
+
+const modal = document.getElementById("tradeModal");
+const openFormBtn = document.getElementById("openFormBtn");
+const closeModal = document.getElementById("closeModal");
+const saveTradeBtn = document.getElementById("saveTradeBtn");
+
+openFormBtn.onclick = () => modal.style.display = "block";
+closeModal.onclick = () => { modal.style.display = "none"; clearForm(); }
+window.onclick = (event) => { if (event.target==modal) { modal.style.display="none"; clearForm(); } }
+
+saveTradeBtn.onclick = () => saveTrade(editIndex);
+
+function saveTrade(index=null){
+  const asset=document.getElementById("asset").value.trim();
+  const buyPrice=parseFloat(document.getElementById("buyPrice").value);
+  const unitsBought=parseFloat(document.getElementById("unitsBought").value);
+  const sellPrice=parseFloat(document.getElementById("sellPrice").value)||0;
+  const unitsSold=parseFloat(document.getElementById("unitsSold").value)||0;
+  const buyDate=document.getElementById("buyDate").value || new Date().toISOString();
+  const sellDate=document.getElementById("sellDate").value || null;
+
+  if(!asset||!buyPrice||!unitsBought){ alert("Fill Asset, Buy Price & Units Bought."); return;}
+  if(unitsSold>unitsBought){ alert("Units sold cannot exceed units bought."); return;}
+
+  const buyValueSold = buyPrice*unitsSold;
+  const sellValue = sellPrice*unitsSold;
+  const profit = sellValue - buyValueSold;
+  const remaining = unitsBought - unitsSold;
+
+  const trade={asset,buyPrice,unitsBought,buyDate,sellPrice,unitsSold,sellDate,buyValueTotal:buyPrice*unitsBought,sellValue,profit,remaining};
+
+  if(index!==null) trades[index]=trade; else trades.push(trade);
+  localStorage.setItem("trades",JSON.stringify(trades));
+  renderTrades();
+  clearForm();
+  modal.style.display="none";
+  editIndex=null;
+}
+
+function renderTrades(){
+  const history = document.getElementById("history");
+  history.innerHTML = "";
+
+  let totalInvested = 0;
+  let totalProfit = 0;
+
+  const filteredTrades = trades.filter(trade => {
+    const status = trade.remaining === 0 ? "Closed ✅" : "Open ⏳";
+    if(filterStatus === "All") return true;
+    if(filterStatus === "Open" && status === "Open ⏳") return true;
+    if(filterStatus === "Closed" && status === "Closed ✅") return true;
+    return false;
+  });
+
+  const totalPages = Math.ceil(filteredTrades.length / itemsPerPage);
+  if(currentPage > totalPages) currentPage = totalPages || 1;
+
+  const start = (currentPage - 1) * itemsPerPage;
+  const paginatedTrades = filteredTrades.slice(start, start + itemsPerPage);
+
+  paginatedTrades.forEach((trade)=>{
+    totalInvested += trade.buyValueTotal;
+    totalProfit += trade.profit;
+    const status = trade.remaining === 0 ? "Closed ✅" : "Open ⏳";
+
+    history.innerHTML += `
+      <div class="trade">
+        <strong>${trade.buyDate ? new Date(trade.buyDate).toLocaleString() : '-'} - ${trade.sellDate ? new Date(trade.sellDate).toLocaleString() : '-'}</strong><br>
+        <strong>${trade.asset}</strong> - <em>${status}</em><br>
+        Buy: ₦${trade.buyPrice} × ${trade.unitsBought}<br>
+        Sold: ₦${trade.sellPrice || "-"} × ${trade.unitsSold || "-"}<br>
+        Remaining: ${trade.remaining}<br>
+        <span class="${trade.profit >= 0 ? "profit" : "loss"}">Profit/Loss: ₦${trade.profit.toFixed(2)}</span><br>
+        <button style="width:50%; margin-right:5px;" onclick="editTrade(${trades.indexOf(trade)})">✏ Edit</button>
+        <button style="width:45%; background-color:red; color:white;" onclick="confirmDelete(${trades.indexOf(trade)})">🗑 Delete</button>
+      </div>`;
+  });
+
+  if(totalPages > 1){
+    history.innerHTML += `<div style="display:flex; justify-content:space-between; margin-top:10px;">
+      ${currentPage > 1 ? '<button onclick="prevPage()">⬅ Previous</button>' : '<div></div>'}
+      ${currentPage < totalPages ? '<button onclick="nextPage()">Next ➡</button>' : '<div></div>'}
+    </div>`;
+  }
+
+  document.getElementById("totalInvested").innerText = totalInvested.toFixed(2);
+  document.getElementById("totalProfit").innerText = totalProfit.toFixed(2);
+
+  renderAllCharts();
+}
+
+function nextPage(){ currentPage++; renderTrades(); }
+function prevPage(){ currentPage--; renderTrades(); }
+
+function confirmDelete(index){
+  const trade = trades[index];
+  if(confirm(`Are you sure you want to delete the trade: ${trade.asset}?`)){
+    trades.splice(index,1);
+    localStorage.setItem("trades",JSON.stringify(trades));
+    renderTrades();
+  }
+}
+
+function editTrade(index){
+  const trade=trades[index];
+  document.getElementById("asset").value=trade.asset;
+  document.getElementById("buyPrice").value=trade.buyPrice;
+  document.getElementById("unitsBought").value=trade.unitsBought;
+  document.getElementById("buyDate").value=trade.buyDate ? trade.buyDate.slice(0,16) : '';
+  document.getElementById("sellPrice").value=trade.sellPrice;
+  document.getElementById("unitsSold").value=trade.unitsSold;
+  document.getElementById("sellDate").value=trade.sellDate ? trade.sellDate.slice(0,16) : '';
+  modal.style.display="block";
+  editIndex=index;
+}
+
+function clearForm(){ 
+  document.getElementById("asset").value=""; 
+  document.getElementById("buyPrice").value=""; 
+  document.getElementById("unitsBought").value=""; 
+  document.getElementById("buyDate").value="";
+  document.getElementById("sellPrice").value=""; 
+  document.getElementById("unitsSold").value=""; 
+  document.getElementById("sellDate").value="";
+  editIndex=null;
+}
+function setFilter(status){ filterStatus=status; currentPage = 1; renderTrades(); }
+
+function renderAllCharts(){
+  const labels = trades.map(t=>t.asset);
+  const profitData = trades.map(t => t.profit);
+  const portfolioData = trades.map(t=>t.buyValueTotal);
+  const buyData = trades.map(t=>t.buyValueTotal);
+  const sellData = trades.map(t=>t.sellValue);
+  const remainingData = trades.map(t=>t.remaining);
+  let cumulative=0;
+  const cumulativeData = trades.map(t => { cumulative += t.profit; return cumulative; });
+
+  const colors = labels.map(()=>`hsl(${Math.random()*360},70%,60%)`);
+
+  if(profitChartInstance) profitChartInstance.destroy();
+  profitChartInstance = new Chart(document.getElementById("profitChart"), {
+    type:'bar', data:{labels, datasets:[{label:'Profit/Loss per Trade', data:profitData, backgroundColor:profitData.map(p=>p>=0?'rgba(75,192,192,0.7)':'rgba(255,99,132,0.7)'), borderColor:profitData.map(p=>p>=0?'rgba(75,192,192,1)':'rgba(255,99,132,1)'), borderWidth:1}]},
+    options:{responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
+  });
+
+  if(portfolioChartInstance) portfolioChartInstance.destroy();
+  portfolioChartInstance = new Chart(document.getElementById("portfolioChart"),{
+    type:'doughnut', data:{labels, datasets:[{data:portfolioData, backgroundColor:colors}]}, options:{responsive:true, plugins:{legend:{position:'bottom'}}}
+  });
+
+  if(buySellChartInstance) buySellChartInstance.destroy();
+  buySellChartInstance = new Chart(document.getElementById("buySellChart"),{
+    type:'bar', data:{labels, datasets:[
+      {label:'Buy', data:buyData, backgroundColor:'rgba(54,162,235,0.7)'},
+      {label:'Sell', data:sellData, backgroundColor:'rgba(255,206,86,0.7)'}
+    ]}, options:{responsive:true, plugins:{legend:{position:'bottom'}}, scales:{x:{stacked:true}, y:{stacked:true}}}
+  });
+
+  if(remainingChartInstance) remainingChartInstance.destroy();
+  remainingChartInstance = new Chart(document.getElementById("remainingChart"),{
+    type:'bar', data:{labels, datasets:[{label:'Remaining Units', data:remainingData, backgroundColor:'rgba(255,99,132,0.7)'}]}, options:{indexAxis:'y', responsive:true, plugins:{legend:{display:false}}, scales:{x:{beginAtZero:true}}}
+  });
+
+  if(cumulativeChartInstance) cumulativeChartInstance.destroy();
+  cumulativeChartInstance = new Chart(document.getElementById("cumulativeChart"),{
+    type:'line', data:{labels, datasets:[{label:'Cumulative Profit', data:cumulativeData, borderColor:'rgba(75,192,192,1)', backgroundColor:'rgba(75,192,192,0.2)', fill:true, tension:0.3}]},
+    options:{responsive:true, plugins:{legend:{position:'bottom'}}, scales:{y:{beginAtZero:true}}}
+  });
+}
+
+renderTrades();
+</script>
+</body>
+</html>
