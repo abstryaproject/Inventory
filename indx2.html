@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Investment Logbook V2</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<div class="app">
+  <h1>📘 Investment Logbook V2</h1>
+
+  <button id="openFormBtn">➕ Add Trade</button>
+
+  <!-- Summary -->
+  <div class="summary">
+    <p>Total Invested: ₦<span id="totalInvested">0</span></p>
+    <p>Total Profit/Loss: ₦<span id="totalProfit">0</span></p>
+  </div>
+<br/></br/>
+  <h2>📜 Trade History</h2>
+  <div class="filters">
+  <button onclick="setFilter('All')">All Trades</button>
+  <button onclick="setFilter('Open')">Open Trades</button>
+  <button onclick="setFilter('Closed')">Closed Trades</button>
+</div>
+  <div id="history"></div>
+  <div class="pagination">
+    <button id="prevBtn">⬅ Previous</button>
+    <button id="nextBtn">Next ➡</button>
+  </div>
+  <!-- Charts -->
+  <div class="charts">
+    <canvas id="profitChart"></canvas>
+    <canvas id="valueChart"></canvas>
+    <canvas id="cumulativeChart"></canvas>
+  </div>
+</div>
+
+<!-- Modal -->
+<div id="tradeModal" class="modal">
+  <div class="modal-content">
+    <span id="closeModal">&times;</span>
+    <h2>Add / Edit Trade</h2>
+
+    <input type="date" id="buyDate">
+    <input type="text" id="asset" placeholder="Asset Name">
+    <input type="number" id="buyPrice" placeholder="Buy Price">
+    <input type="number" id="unitsBought" placeholder="Units Bought">
+
+    <input type="date" id="sellDate">
+    <input type="number" id="sellPrice" placeholder="Sell Price">
+    <input type="number" id="unitsSold" placeholder="Units Sold">
+
+    <button id="saveTradeBtn">💾 Save Trade</button>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login - Abstry Shop</title>
+
+<style>
+    *{
+        margin:0;
+        padding:0;
+        box-sizing:border-box;
+        font-family: Arial, Helvetica, sans-serif;
+    }
+
+    body{
+        height:100vh;
+        display:flex;
+        justify-content:center;
+        align-items:center;
+        background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    }
+
+    .login-container{
+        background:#ffffff;
+        padding:40px;
+        width:350px;
+        border-radius:15px;
+        box-shadow:0 15px 35px rgba(0,0,0,0.3);
+        text-align:center;
+        animation:fadeIn 0.6s ease-in-out;
+    }
+
+    @keyframes fadeIn{
+        from{opacity:0; transform:translateY(-20px);}
+        to{opacity:1; transform:translateY(0);}
+    }
+
+    .login-container h2{
+        margin-bottom:25px;
+        color:#333;
+    }
+
+    .input-group{
+        margin-bottom:20px;
+        text-align:left;
+    }
+
+    .input-group label{
+        font-size:14px;
+        color:#555;
+    }
+
+    .input-group input{
+        width:100%;
+        padding:10px;
+        margin-top:5px;
+        border:1px solid #ccc;
+        border-radius:8px;
+        outline:none;
+        transition:0.3s;
+    }
+
+    .input-group input:focus{
+        border-color:#2c5364;
+        box-shadow:0 0 5px rgba(44,83,100,0.5);
+    }
+
+    .login-btn{
+        width:100%;
+        padding:12px;
+        background:#2c5364;
+        border:none;
+        border-radius:8px;
+        color:white;
+        font-size:16px;
+        cursor:pointer;
+        transition:0.3s;
+    }
+
+    .login-btn:hover{
+        background:#203a43;
+    }
+
+    .extra-links{
+        margin-top:15px;
+        font-size:14px;
+    }
+
+    .extra-links a{
+        color:#2c5364;
+        text-decoration:none;
+        font-weight:bold;
+    }
+
+    .extra-links a:hover{
+        text-decoration:underline;
+    }
+
+</style>
+</head>
+<body>
+
+<div class="login-container">
+    <h2>Welcome Back</h2>
+
+    <form>
+        <div class="input-group">
+            <input 
+  type="file" 
+  accept=".xls,.xlsx,
+  application/vnd.ms-excel,
+  application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"placeholder="Upload Excel file">        </div>
+
+        <button type="submit" class="login-btn">Login</button>
+    </form>
+
+    <div class="extra-links">
+        <p>New User; Don't have an excel file? <button id="openFormBtn">➕ Add Trade</button>
+    </div>
+</div>
+
+</body>
+</html>

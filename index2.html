@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Investment Tracker Dashboard</title>
+
+<!-- SEO -->
+<meta name="description" content="Track your investments, record buy/sell dates, visualize profits, and manage your stock portfolio with our interactive Investment Tracker Dashboard.">
+<meta name="keywords" content="Investment Tracker, Stock Portfolio, Buy Sell Records, Profit Dashboard, Financial Tracker, Trading History, Portfolio Visualization">
+<meta name="author" content="Abstry">
+<meta name="robots" content="index, follow">
+
+<!-- Open Graph / Social Sharing -->
+<meta property="og:title" content="Investment Tracker Dashboard">
+<meta property="og:description" content="Track your investments, record buy/sell dates, visualize profits, and manage your portfolio easily.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://yourwebsite.com">
+<meta property="og:image" content="https://yourwebsite.com/preview-image.png">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Investment Tracker Dashboard">
+<meta name="twitter:description" content="Track your investments, record buy/sell dates, visualize profits, and manage your portfolio easily.">
+<meta name="twitter:image" content="https://yourwebsite.com/preview-image.png">
+
+<!-- Favicon -->
+<link id="dynamic-favicon" rel="icon" type="image/png" href="https://yourwebsite.com/favicon-neutral.png">
+<link rel="apple-touch-icon" sizes="180x180" href="https://yourwebsite.com/apple-touch-icon.png">
+
+<!-- Theme & Browser Colors -->
+<meta name="theme-color" content="#1e90ff">
+<meta name="msapplication-TileColor" content="#1e90ff">
+<meta name="msapplication-TileImage" content="https://yourwebsite.com/mstile-144x144.png">
+
+<!-- iOS Web App Mode -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<!-- Dynamic Animated Favicon Script -->
+<script>
+let lastProfit = null;
+let flashTimeout;
+
+function updateAnimatedFavicon() {
+  const totalProfit = trades.reduce((sum, t) => sum + t.profit, 0);
+  const favicon = document.getElementById('dynamic-favicon');
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 32;
+  canvas.height = 32;
+  const ctx = canvas.getContext('2d');
+
+  const baseImage = new Image();
+  baseImage.src = "https://yourwebsite.com/favicon-neutral.png";
+  baseImage.onload = () => {
+    ctx.drawImage(baseImage, 0, 0, 32, 32);
+
+    // Circle background
+    const isNegative = totalProfit < 0;
+    ctx.fillStyle = isNegative ? 'red' : 'green';
+    ctx.beginPath();
+    ctx.arc(24, 8, 8, 0, 2*Math.PI);
+    ctx.fill();
+
+    // Draw number
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 10px Arial';
+    let displayNum = Math.round(totalProfit);
+    if (Math.abs(displayNum) > 999) displayNum = displayNum > 0 ? '999+' : '-999+';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(displayNum, 24, 8);
+
+    // Set favicon
+    favicon.href = canvas.toDataURL('image/png');
+
+    // Flash animation if profit sign changed
+    if (lastProfit !== null && Math.sign(totalProfit) !== Math.sign(lastProfit)) {
+      clearTimeout(flashTimeout);
+      let flash = 0;
+      const flashInterval = setInterval(() => {
+        ctx.clearRect(0,0,32,32);
+        ctx.drawImage(baseImage,0,0,32,32);
+        ctx.fillStyle = flash % 2 === 0 ? (totalProfit<0?'green':'red') : (totalProfit<0?'red':'green');
+        ctx.beginPath();
+        ctx.arc(24,8,8,0,2*Math.PI);
+        ctx.fill();
+        ctx.fillStyle = 'white';
+        ctx.fillText(displayNum, 24, 8);
+        favicon.href = canvas.toDataURL('image/png');
+        flash++;
+        if(flash>5) clearInterval(flashInterval);
+      }, 150);
+    }
+
+    lastProfit = totalProfit;
+  };
+}
+
+</script>
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- SheetJS (Excel Library) -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+<style>
+  body { font-family: Arial; background: #f5f6fa; margin:0; padding:0; }
+  .app { max-width: 950px; margin: auto; padding:20px; }
+  h1,h2 { text-align:center; }
+  .summary { background:white; padding:15px; border-radius:10px; margin-bottom:20px; box-shadow:0 2px 5px rgba(0,0,0,0.1);}
+  button { width:100%; padding:12px; border:none; border-radius:8px; background:#1e90ff; color:white; font-size:16px; cursor:pointer; margin:5px 0;}
+  button:hover { background:#0c75d8;}
+  .trade { background:white; padding:10px; margin-top:10px; border-radius:10px; box-shadow:0 2px 5px rgba(0,0,0,0.1);}
+  .profit { color:green; } .loss { color:red; }
+  .modal { display:none; position:fixed; z-index:10; left:0; top:0; width:100%; height:100%; background-color: rgba(0,0,0,0.5);}
+  .modal-content { background:white; margin:5% auto; padding:20px; border-radius:10px; max-width:450px;}
+  .close { float:right; font-size:28px; cursor:pointer; }
+  .modal input { width:100%; padding:10px; margin:5px 0; border-radius:8px; border:1px solid #ddd; }
+  .filters { display:flex; justify-content:space-around; margin-bottom:15px; flex-wrap:wrap; }
+  .filters button { width:auto; padding:8px 12px; font-size:14px; }
+  canvas { background:white; border-radius:10px; padding:10px; margin-bottom:20px; }
+</style>
+</head>
+
+<body>
+<div class="app">
+
+<h1>📈 Investment Tracker Dashboard</h1>
+
+<p style="text-align:center; color:gray;">
+💡 New user? Start by adding a trade. Returning user? Import Excel.
+</p>
+
+<button id="openFormBtn">➕ Add Trade</button>
+<button onclick="document.getElementById('excelFile').click()">📂 Import Excel</button>
+<input type="file" id="excelFile" accept=".xlsx,.xls" style="display:none"/>
+<button onclick="logoutAndExport()">🚪 Logout / Save to Excel</button>
+
+<!-- Modal -->
+<div id="tradeModal" class="modal">
+  <div class="modal-content">
+    <span class="close" id="closeModal">&times;</span>
+    <h2>Add / Edit Trade</h2>
+    <input type="text" id="asset" placeholder="Asset / Share Name">
+    <input type="number" id="buyPrice" placeholder="Buy Price">
+    <input type="number" id="unitsBought" placeholder="Units Bought">
+    <input type="datetime-local" id="buyDate">
+    <input type="number" id="sellPrice" placeholder="Sell Price (optional)">
+    <input type="number" id="unitsSold" placeholder="Units Sold (optional)">
+    <input type="datetime-local" id="sellDate">
+    <button id="saveTradeBtn">💾 Save Trade</button>
+  </div>
+</div>
+
+<div class="filters">
+  <button onclick="setFilter('All')">All Trades</button>
+  <button onclick="setFilter('Open')">Open Trades</button>
+  <button onclick="setFilter('Closed')">Closed Trades</button>
+</div>
+
+<div class="summary">
+  <p>Total Invested: ₦<span id="totalInvested">0</span></p>
+  <p>Total Profit/Loss: ₦<span id="totalProfit">0</span></p>
+</div>
+
+<div id="history"></div>
+
+<h2>📊 Profit/Loss per Trade</h2>
+<canvas id="profitChart"></canvas>
+
+<h2>📊 Portfolio Composition</h2>
+<canvas id="portfolioChart"></canvas>
+
+<h2>📊 Buy vs Sell</h2>
+<canvas id="buySellChart"></canvas>
+
+<h2>📊 Remaining Shares</h2>
+<canvas id="remainingChart"></canvas>
+
+<h2>📊 Cumulative Profit</h2>
+<canvas id="cumulativeChart"></canvas>
+
+</div>
+
+<script>
+let trades = JSON.parse(localStorage.getItem("trades")) || [];
+let editIndex = null;
+let filterStatus = "All";
+
+let profitChartInstance, portfolioChartInstance, buySellChartInstance, remainingChartInstance, cumulativeChartInstance;
+
+const modal = document.getElementById("tradeModal");
+document.getElementById("openFormBtn").onclick = () => modal.style.display = "block";
+document.getElementById("closeModal").onclick = () => closeModal();
+window.onclick = (e) => { if(e.target == modal) closeModal(); }
+
+function closeModal(){ modal.style.display = "none"; clearForm(); }
+
+document.getElementById("saveTradeBtn").onclick = () => saveTrade(editIndex);
+
+function saveTrade(index=null){
+  const asset = document.getElementById("asset").value.trim();
+  const buyPrice = parseFloat(document.getElementById("buyPrice").value);
+  const unitsBought = parseFloat(document.getElementById("unitsBought").value);
+  const buyDate = document.getElementById("buyDate").value || new Date().toISOString();
+  const sellPrice = parseFloat(document.getElementById("sellPrice").value) || 0;
+  const unitsSold = parseFloat(document.getElementById("unitsSold").value) || 0;
+  const sellDate = document.getElementById("sellDate").value || "";
+
+  if(!asset || !buyPrice || !unitsBought){ alert("Fill Asset, Buy Price & Units Bought"); return; }
+  if(unitsSold > unitsBought){ alert("Units sold cannot exceed units bought"); return; }
+
+  const sellValue = sellPrice * unitsSold;
+  const profit = sellValue - (buyPrice * unitsSold);
+  const remaining = unitsBought - unitsSold;
+
+  const trade = {asset,buyPrice,unitsBought,buyDate,sellPrice,unitsSold,sellDate,buyValueTotal:buyPrice*unitsBought,sellValue,profit,remaining};
+
+  if(index !== null) trades[index] = trade; else trades.push(trade);
+  localStorage.setItem("trades", JSON.stringify(trades));
+  renderTrades();
+  closeModal();
+}
+
+function renderTrades(){
+  const history = document.getElementById("history");
+  history.innerHTML = "";
+
+  let totalInvested = 0;
+  let totalProfit = 0;
+
+  const filteredTrades = trades.filter(t=>{
+    const status = t.remaining===0?"Closed":"Open";
+    if(filterStatus==="All") return true;
+    return filterStatus===status;
+  });
+
+  filteredTrades.forEach((t,i)=>{
+    totalInvested += t.buyValueTotal;
+    totalProfit += t.profit;
+    history.innerHTML += `
+      <div class="trade">
+        <strong>${t.asset}</strong><br>
+        Buy: ₦${t.buyPrice} × ${t.unitsBought}<br>
+        Buy Date: ${new Date(t.buyDate).toLocaleString()}<br>
+        Sell: ₦${t.sellPrice || "-"} × ${t.unitsSold || "-"}<br>
+        Sell Date: ${t.sellDate ? new Date(t.sellDate).toLocaleString() : "-"}<br>
+        Remaining: ${t.remaining}<br>
+        <span class="${t.profit>=0?'profit':'loss'}">
+          Profit/Loss: ₦${t.profit.toFixed(2)}
+        </span><br>
+        <button style="width:50%; margin-right:5px;" onclick="editTrade(${i})">✏ Edit</button>
+        <button style="width:45%; background-color:red; color:white;" style="background:red" onclick="deleteTrade(${i})">🗑 Delete</button>
+      </div>`;
+  });
+
+  document.getElementById("totalInvested").innerText = totalInvested.toFixed(2);
+  document.getElementById("totalProfit").innerText = totalProfit.toFixed(2);
+
+  renderCharts();
+}
+
+function editTrade(i){
+  const t = trades[i];
+  document.getElementById("asset").value=t.asset;
+  document.getElementById("buyPrice").value=t.buyPrice;
+  document.getElementById("unitsBought").value=t.unitsBought;
+  document.getElementById("buyDate").value=t.buyDate.slice(0,16);
+  document.getElementById("sellPrice").value=t.sellPrice;
+  document.getElementById("unitsSold").value=t.unitsSold;
+  document.getElementById("sellDate").value=t.sellDate ? t.sellDate.slice(0,16) : "";
+  modal.style.display = "block";
+  editIndex=i;
+}
+
+function deleteTrade(i){ if(confirm("Delete this trade?")){ trades.splice(i,1); localStorage.setItem("trades",JSON.stringify(trades)); renderTrades(); } }
+function clearForm(){ document.querySelectorAll(".modal input").forEach(i=>i.value=""); editIndex=null; }
+function setFilter(s){ filterStatus=s; renderTrades(); }
+
+function renderCharts(){
+  const labels = trades.map(t=>t.asset);
+  const profits = trades.map(t=>t.profit);
+  const invested = trades.map(t=>t.buyValueTotal);
+  const sell = trades.map(t=>t.sellValue);
+  const remaining = trades.map(t=>t.remaining);
+  let cumulative=0;
+  const cumulativeData = trades.map(t=> cumulative+=t.profit);
+
+  if(profitChartInstance) profitChartInstance.destroy();
+  profitChartInstance = new Chart(profitChart,{type:'bar',data:{labels,datasets:[{data:profits,backgroundColor:profits.map(p=>p>=0?'green':'red')}]}});
+  if(portfolioChartInstance) portfolioChartInstance.destroy();
+  portfolioChartInstance = new Chart(portfolioChart,{type:'doughnut',data:{labels,datasets:[{data:invested, backgroundColor:labels.map(()=>`hsl(${Math.random()*360},70%,60%)`)}]}});
+  if(buySellChartInstance) buySellChartInstance.destroy();
+  buySellChartInstance = new Chart(buySellChart,{type:'bar',data:{labels,datasets:[{label:'Buy',data:invested,backgroundColor:'rgba(54,162,235,0.7)'},{label:'Sell',data:sell,backgroundColor:'rgba(255,206,86,0.7)'}]},options:{scales:{x:{stacked:true},y:{stacked:true}}}});
+  if(remainingChartInstance) remainingChartInstance.destroy();
+  remainingChartInstance = new Chart(remainingChart,{type:'bar',data:{labels,datasets:[{label:'Remaining',data:remaining,backgroundColor:'rgba(255,99,132,0.7)'}]},options:{indexAxis:'y'}});
+  if(cumulativeChartInstance) cumulativeChartInstance.destroy();
+  cumulativeChartInstance = new Chart(cumulativeChart,{type:'line',data:{labels,datasets:[{label:'Cumulative Profit',data:cumulativeData,fill:true,borderColor:'green'}]}});
+}
+
+/* Excel Import */
+excelFile.addEventListener('change', function(e){
+  const file = e.target.files[0];
+  const reader = new FileReader();
+  reader.onload = function(evt){
+    const data = new Uint8Array(evt.target.result);
+    const wb = XLSX.read(data,{type:'array'});
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const json = XLSX.utils.sheet_to_json(sheet);
+    trades = json.map(r=>{
+      const buyPrice = parseFloat(r["Buy Price"]||0);
+      const unitsBought = parseFloat(r["Units Bought"]||0);
+      const sellPrice = parseFloat(r["Sell Price"]||0);
+      const unitsSold = parseFloat(r["Units Sold"]||0);
+      const sellValue = sellPrice*unitsSold;
+      const profit = sellValue-(buyPrice*unitsSold);
+      const remaining = unitsBought-unitsSold;
+      return {...r,buyPrice,unitsBought,sellPrice,unitsSold,sellValue,profit,remaining,buyValueTotal:buyPrice*unitsBought};
+    });
+    localStorage.setItem("trades",JSON.stringify(trades));
+    renderTrades();
+    alert("✅ Excel Loaded");
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+/* Full Excel Export (Styled + Formulas + Summary Sheet) */
+function logoutAndExport(){
+  if(trades.length===0){ alert("No data to export"); return; }
+
+  const exportTrades = trades.map(t=>({
+    Asset: t.asset,
+    "Buy Price": t.buyPrice,
+    "Units Bought": t.unitsBought,
+    "Buy Date": t.buyDate,
+    "Sell Price": t.sellPrice||0,
+    "Units Sold": t.unitsSold||0,
+    "Sell Date": t.sellDate||"",
+    "Profit/Loss": null,
+    "Remaining": null
+  }));
+
+  const wsTrades = XLSX.utils.json_to_sheet(exportTrades);
+  const range = XLSX.utils.decode_range(wsTrades['!ref']);
+  for(let R=1;R<=range.e.r;++R){
+    const row=R+1;
+    wsTrades["H"+row]={f:`(E${row}*F${row})-(B${row}*F${row})`};
+    wsTrades["I"+row]={f:`C${row}-F${row}`};
+    if(R%2===0) for(let C=0;C<=range.e.c;C++){ const cell=XLSX.utils.encode_cell({r:R,c:C}); if(wsTrades[cell]) wsTrades[cell].s=wsTrades[cell].s||{}; wsTrades[cell].s.fill={fgColor:{rgb:"F9F9F9"}}; }
+  }
+
+  const totalRow = exportTrades.length+2;
+  wsTrades["A"+totalRow]={v:"TOTAL SUMMARY",s:{font:{bold:true},fill:{fgColor:{rgb:"DDDDDD"}}}};
+  wsTrades["B"+totalRow]={v:"Total Buy:",s:{font:{bold:true}}};
+  wsTrades["C"+totalRow]={f:`SUMPRODUCT(B2:B${totalRow-2},C2:C${totalRow-2})`};
+  wsTrades["E"+totalRow]={v:"Total Sell:",s:{font:{bold:true}}};
+  wsTrades["F"+totalRow]={f:`SUMPRODUCT(E2:E${totalRow-2},F2:F${totalRow-2})`};
+  wsTrades["H"+totalRow]={f:`SUM(H2:H${totalRow-2})`};
+
+  wsTrades['!cols']=[{wch:18},{wch:12},{wch:12},{wch:22},{wch:12},{wch:12},{wch:22},{wch:14},{wch:12}];
+  wsTrades['!freeze']={xSplit:0,ySplit:1};
+  for(let C=range.s.c;C<=range.e.c;C++){ const cell=XLSX.utils.encode_cell({r:0,c:C}); if(wsTrades[cell]) wsTrades[cell].s={font:{bold:true,color:{rgb:"FFFFFF"}},fill:{fgColor:{rgb:"1E90FF"}},alignment:{horizontal:"center"}}; }
+
+  for(let R=1;R<=range.e.r+2;R++)["B","E","H"].forEach(col=>{ const cell=wsTrades[col+(R+1)]; if(cell) cell.z='"₦"#,##0.00'; });
+
+  const summaryData=[["Investment Summary","",""],["Total Buy",{f:`C${totalRow}`},"₦"],["Total Sell",{f:`F${totalRow}`},"₦"],["Total Profit/Loss",{f:`H${totalRow}`},"₦"]];
+  const wsSummary=XLSX.utils.aoa_to_sheet(summaryData);
+  wsSummary['A1'].s={font:{bold:true,sz:14},alignment:{horizontal:"center"}};
+  wsSummary['B1'].s={font:{bold:true,sz:14}};
+  for(let R=1;R<=summaryData.length;R++){ const cell=wsSummary["B"+(R+1)]; if(cell) cell.z='"₦"#,##0.00'; }
+  wsSummary['!cols']=[{wch:20},{wch:15},{wch:5}];
+
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,wsTrades,"Trades");
+  XLSX.utils.book_append_sheet(wb,wsSummary,"Summary");
+
+  const now=new Date();
+  const timestamp=now.toISOString().replace(/[-:]/g,"").replace("T","_").slice(0,15);
+  XLSX.writeFile(wb,`Investment_Report_${timestamp}.xlsx`);
+
+  trades=[];
+  localStorage.removeItem("trades");
+  renderTrades();
+}
+
+renderTrades();
+</script>
+</body>
+</html>

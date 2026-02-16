@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Investment Tracker Dashboard</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+<style>
+body { font-family: Arial; background: #f5f6fa; margin:0; padding:0; }
+.app { max-width: 950px; margin: auto; padding:20px; }
+h1,h2 { text-align:center; }
+.summary { background:white; padding:15px; border-radius:10px; margin-bottom:20px; box-shadow:0 2px 5px rgba(0,0,0,0.1);}
+button { width:100%; padding:12px; border:none; border-radius:8px; background:#1e90ff; color:white; font-size:16px; cursor:pointer; margin:5px 0;}
+button:hover { background:#0c75d8;}
+.trade { background:white; padding:10px; margin-top:10px; border-radius:10px; box-shadow:0 2px 5px rgba(0,0,0,0.1);}
+.profit { color:green; } .loss { color:red; }
+.modal { display:none; position:fixed; z-index:10; left:0; top:0; width:100%; height:100%; background-color: rgba(0,0,0,0.5);}
+.modal-content { background:white; margin:5% auto; padding:20px; border-radius:10px; max-width:450px; position:relative;}
+.close { float:right; font-size:28px; cursor:pointer; }
+.modal input { width:100%; padding:10px; margin:5px 0; border-radius:8px; border:1px solid #ddd; }
+.filters { display:flex; justify-content:space-around; margin-bottom:15px; flex-wrap:wrap; }
+.filters button { width:auto; padding:8px 12px; font-size:14px; }
+canvas { background:white; border-radius:10px; padding:10px; margin-bottom:20px; }
+
+/* Login/Register */
+#authModal { display:flex; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:999; align-items:center; justify-content:center; }
+.auth-box { background:white; width:90%; max-width:400px; padding:20px; border-radius:12px; }
+.auth-box h2 { text-align:center; margin-top:0; }
+.link { color:#1e90ff; cursor:pointer; text-align:center; display:block; margin-top:10px; }
+.readonly { opacity:0.6; pointer-events:none; }
+</style>
+</head>
+
+<body>
+
+<!-- LOGIN / REGISTER MODAL -->
+<div id="authModal">
+  <div class="auth-box" id="loginBox">
+    <h2>🔐 Login</h2>
+    <input type="file" id="loginExcel" accept=".xlsx,.xls">
+    <input type="password" id="loginCode" placeholder="Access Code (optional)">
+    <button onclick="login()">Login</button>
+    <span class="link" onclick="showRegister()">New User? Register</span>
+    <span class="link" onclick="guestAccess()">Continue as Guest</span>
+  </div>
+
+  <div class="auth-box" id="registerBox" style="display:none">
+    <h2>🆕 Register</h2>
+    <input type="password" id="registerCode" placeholder="Create Access Code (optional)">
+    <button onclick="register()">Create Portfolio</button>
+    <span class="link" onclick="showLogin()">Back to Login</span>
+  </div>
+</div>
+
+<div class="app" id="app" style="display:none">
+
+<h1>📈 Investment Tracker Dashboard</h1>
+
+<button id="openFormBtn">➕ Add Trade</button>
+<button onclick="document.getElementById('excelFile').click()">📂 Import Excel</button>
+<input type="file" id="excelFile" accept=".xlsx,.xls" style="display:none"/>
+<button onclick="logout()">🚪 Logout</button>
+
+<div class="filters">
+  <button onclick="setFilter('All')">All Trades</button>
+  <button onclick="setFilter('Open')">Open Trades</button>
+  <button onclick="setFilter('Closed')">Closed Trades</button>
+</div>
+
+<div class="summary">
+  <p>Total Invested: ₦<span id="totalInvested">0</span></p>
+  <p>Total Profit/Loss: ₦<span id="totalProfit">0</span></p>
+</div>
+
+<div id="history"></div>
+
+<h2>📊 Profit/Loss per Trade</h2>
+<canvas id="profitChart"></canvas>
+
+<h2>📊 Portfolio Composition</h2>
+<canvas id="portfolioChart"></canvas>
+
+<h2>📊 Buy vs Sell</h2>
+<canvas id="buySellChart"></canvas>
+
+<h2>📊 Remaining Shares</h2>
+<canvas id="remainingChart"></canvas>
+
+<h2>📊 Cumulative Profit</h2>
+<canvas id="cumulativeChart"></canvas>
+
+</div>
+
+<!-- TRADE MODAL -->
+<div id="tradeModal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="closeModal()">&times;</span>
+    <h2>Add / Edit Trade</h2>
+    <input type="text" id="asset" placeholder="Asset / Share Name">
+    <input type="number" id="buyPrice" placeholder="Buy Price">
+    <input type="number" id="unitsBought" placeholder="Units Bought">
+    <input type="datetime-local" id="buyDate">
+    <input type="number" id="sellPrice" placeholder="Sell Price (optional)">
+    <input type="number" id="unitsSold" placeholder="Units Sold (optional)">
+    <input type="datetime-local" id="sellDate">
+    <button onclick="saveTrade()">💾 Save Trade</button>
+  </div>
+</div>
+
+<script>
+let trades = [];
+let accessMode = "guest"; // guest | full
+let accessCode = "";
+let editIndex = null;
+let filterStatus = "All";
+
+let profitChartInstance, portfolioChartInstance, buySellChartInstance, remainingChartInstance, cumulativeChartInstance;
+
+function showRegister(){ loginBox.style.display="none"; registerBox.style.display="block"; }
+function showLogin(){ registerBox.style.display="none"; loginBox.style.display="block"; }
+
+function guestAccess(){
+  accessMode = "guest";
+  document.getElementById("authModal").style.display="none";
+  document.getElementById("app").style.display="block";
+  trades = JSON.parse(localStorage.getItem("trades")) || [];
+  renderTrades();
+}
+
+function register(){
+  accessCode = document.getElementById("registerCode").value.trim();
+  accessMode = "full";
+  document.getElementById("authModal").style.display="none";
+  document.getElementById("app").style.display="block";
+  trades = [];
+  renderTrades();
+}
+
+function login(){
+  const file = document.getElementById("loginExcel").files[0];
+  const code = document.getElementById("loginCode").value.trim();
+
+  if(!file){ alert("Select Excel file"); return; }
+
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const data = new Uint8Array(e.target.result);
+    const wb = XLSX.read(data,{type:'array'});
+
+    const securitySheet = wb.Sheets["SECURITY"];
+    let embeddedCode = "";
+    if(securitySheet){
+      const json = XLSX.utils.sheet_to_json(securitySheet);
+      embeddedCode = json[0]?.Code || "";
+    }
+
+    if(embeddedCode && code !== embeddedCode){
+      accessMode = "guest";
+      alert("⚠ Wrong code → Read Only Mode");
+    } else {
+      accessMode = "full";
+      accessCode = embeddedCode;
+    }
+
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const json = XLSX.utils.sheet_to_json(sheet);
+
+    trades = json.map(r=>{
+      const buyPrice = parseFloat(r["Buy Price"]||0);
+      const unitsBought = parseFloat(r["Units Bought"]||0);
+      const sellPrice = parseFloat(r["Sell Price"]||0);
+      const unitsSold = parseFloat(r["Units Sold"]||0);
+      const sellValue = sellPrice*unitsSold;
+      const profit = sellValue-(buyPrice*unitsSold);
+      const remaining = unitsBought-unitsSold;
+      return {asset:r.Asset,buyPrice,unitsBought,buyDate:r["Buy Date"],sellPrice,unitsSold,sellDate:r["Sell Date"],sellValue,profit,remaining,buyValueTotal:buyPrice*unitsBought};
+    });
+
+    document.getElementById("authModal").style.display="none";
+    document.getElementById("app").style.display="block";
+    localStorage.setItem("trades",JSON.stringify(trades));
+    renderTrades();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function logout(){
+  if(accessMode === "guest"){
+    window.close?.();
+    return;
+  }
+  exportExcel();
+}
+
+function exportExcel(){
+  if(trades.length===0){ alert("No data"); return; }
+
+  const exportTrades = trades.map(t=>({
+    Asset:t.asset,
+    "Buy Price":t.buyPrice,
+    "Units Bought":t.unitsBought,
+    "Buy Date":t.buyDate,
+    "Sell Price":t.sellPrice||0,
+    "Units Sold":t.unitsSold||0,
+    "Sell Date":t.sellDate||""
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(exportTrades);
+
+  const securityData = [{Code: accessCode || ""}];
+  const wsSecurity = XLSX.utils.json_to_sheet(securityData);
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Trades");
+  XLSX.utils.book_append_sheet(wb, wsSecurity, "SECURITY");
+
+  XLSX.writeFile(wb, "Investment_Report.xlsx");
+  trades=[];
+  localStorage.removeItem("trades");
+  renderTrades();
+}
+
+document.getElementById("openFormBtn").onclick = ()=>{
+  if(accessMode==="guest"){ alert("Guest cannot add/edit"); return; }
+  tradeModal.style.display="block";
+};
+
+function closeModal(){ tradeModal.style.display="none"; clearForm(); }
+
+function saveTrade(){
+  const asset = document.getElementById("asset").value.trim();
+  const buyPrice = parseFloat(document.getElementById("buyPrice").value);
+  const unitsBought = parseFloat(document.getElementById("unitsBought").value);
+  const buyDate = document.getElementById("buyDate").value || new Date().toISOString();
+  const sellPrice = parseFloat(document.getElementById("sellPrice").value) || 0;
+  const unitsSold = parseFloat(document.getElementById("unitsSold").value) || 0;
+  const sellDate = document.getElementById("sellDate").value || "";
+
+  if(!asset || !buyPrice || !unitsBought){ alert("Fill required fields"); return; }
+
+  const sellValue = sellPrice * unitsSold;
+  const profit = sellValue - (buyPrice * unitsSold);
+  const remaining = unitsBought - unitsSold;
+
+  const trade = {asset,buyPrice,unitsBought,buyDate,sellPrice,unitsSold,sellDate,sellValue,profit,remaining,buyValueTotal:buyPrice*unitsBought};
+
+  if(editIndex!==null){ trades[editIndex]=trade; editIndex=null; }
+  else trades.push(trade);
+
+  localStorage.setItem("trades",JSON.stringify(trades));
+  closeModal();
+  renderTrades();
+}
+
+function renderTrades(){
+  const history = document.getElementById("history");
+  history.innerHTML="";
+
+  let totalInvested=0, totalProfit=0;
+
+  trades.forEach((t,i)=>{
+    totalInvested+=t.buyValueTotal;
+    totalProfit+=t.profit;
+
+    history.innerHTML+=`
+    <div class="trade">
+      <strong>${t.asset}</strong><br>
+      Buy: ₦${t.buyPrice} × ${t.unitsBought}<br>
+      Sell: ₦${t.sellPrice||"-"} × ${t.unitsSold||"-"}<br>
+      Remaining: ${t.remaining}<br>
+      <span class="${t.profit>=0?'profit':'loss'}">₦${t.profit.toFixed(2)}</span><br>
+      ${accessMode==="full" ? `<button onclick="editTrade(${i})">✏ Edit</button>
+      <button style="background:red" onclick="deleteTrade(${i})">🗑 Delete</button>` : ""}
+    </div>`;
+  });
+
+  document.getElementById("totalInvested").innerText=totalInvested.toFixed(2);
+  document.getElementById("totalProfit").innerText=totalProfit.toFixed(2);
+
+  renderCharts();
+}
+
+function editTrade(i){
+  const t=trades[i];
+  asset.value=t.asset;
+  buyPrice.value=t.buyPrice;
+  unitsBought.value=t.unitsBought;
+  sellPrice.value=t.sellPrice;
+  unitsSold.value=t.unitsSold;
+  editIndex=i;
+  tradeModal.style.display="block";
+}
+
+function deleteTrade(i){
+  if(accessMode==="guest") return;
+  if(confirm("Delete trade?")){
+    trades.splice(i,1);
+    localStorage.setItem("trades",JSON.stringify(trades));
+    renderTrades();
+  }
+}
+
+function renderCharts(){
+  const labels = trades.map(t=>t.asset);
+  const profits = trades.map(t=>t.profit);
+
+  if(profitChartInstance) profitChartInstance.destroy();
+  profitChartInstance=new Chart(profitChart,{type:'bar',data:{labels,datasets:[{data:profits}]}});
+}
+
+renderTrades();
+</script>
+</body>
+</html>
