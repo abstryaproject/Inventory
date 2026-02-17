@@ -177,7 +177,7 @@ let trades = JSON.parse(localStorage.getItem("trades")) || [];
 let editIndex = null;
 let filterStatus = "All";
 let currentPage = 1;
-const itemsPerPage = null;
+const itemsPerPage = 1000000;
 
 // Chart instances
 let profitChartInstance, portfolioChartInstance, buySellChartInstance, remainingChartInstance, cumulativeChartInstance;
